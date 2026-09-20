@@ -139,7 +139,8 @@ async function showApp(){
   document.getElementById('lock-btn').onclick = function(){
     supabaseClient.auth.signOut();
   };
-  document.getElementById('history-btn').hidden = (currentUser.email !== ADMIN_EMAIL);
+  var adminRes = await supabaseClient.rpc('is_admin_user');
+  document.getElementById('history-btn').hidden = !(adminRes.data);
   await loadBookings();
   renderCalendar();
   wireCalendarNav();
@@ -413,17 +414,19 @@ async function loadAccessTab(){
   list.innerHTML = '<p class="empty-note">A carregar…</p>';
   var reqRes = await supabaseClient.rpc('list_access_requests');
   var usersRes = await supabaseClient.rpc('list_allowed_users');
-  if (reqRes.error || usersRes.error){
+  var adminsRes = await supabaseClient.rpc('list_admin_users');
+  if (reqRes.error || usersRes.error || adminsRes.error){
     list.innerHTML = '<p class="empty-note">Não foi possível carregar.</p>';
     return;
   }
-  renderAccessTab(reqRes.data || [], usersRes.data || []);
+  renderAccessTab(reqRes.data || [], usersRes.data || [], adminsRes.data || []);
 }
 
-function renderAccessTab(requests, users){
+function renderAccessTab(requests, users, admins){
   var list = document.getElementById('access-list');
   list.innerHTML = '';
   var pending = requests.filter(function(r){ return r.status === 'pending'; });
+  var adminEmails = admins.map(function(a){ return a.email; });
 
   var h1 = document.createElement('h3');
   h1.className = 'access-section-title';
@@ -464,17 +467,38 @@ function renderAccessTab(requests, users){
   h2.textContent = 'Utilizadores autorizados';
   list.appendChild(h2);
   users.forEach(function(u){
+    var isAdmin = adminEmails.indexOf(u.email) !== -1;
     var row = document.createElement('div');
     row.className = 'history-row';
-    row.innerHTML = '<div class="history-row-top"><span>'+escapeHtml(u.email)+'</span></div>';
+    row.innerHTML = '<div class="history-row-top"><span>'+escapeHtml(u.email)+(isAdmin ? ' <span class="history-badge history-badge-update">Admin</span>' : '')+'</span></div>';
+    var actions = document.createElement('div');
+    actions.className = 'history-row-actions';
     if (u.email !== ADMIN_EMAIL){
       var revokeBtn = document.createElement('button');
       revokeBtn.type = 'button';
-      revokeBtn.className = 'btn btn-secondary history-revert-btn';
+      revokeBtn.className = 'btn btn-secondary';
       revokeBtn.textContent = 'Remover acesso';
       revokeBtn.addEventListener('click', function(){ revokeAccess(u.email); });
-      row.appendChild(revokeBtn);
+      actions.appendChild(revokeBtn);
     }
+    if (isAdmin){
+      if (u.email !== ADMIN_EMAIL){
+        var revokeAdminBtn = document.createElement('button');
+        revokeAdminBtn.type = 'button';
+        revokeAdminBtn.className = 'btn btn-secondary';
+        revokeAdminBtn.textContent = 'Remover admin';
+        revokeAdminBtn.addEventListener('click', function(){ revokeAdmin(u.email); });
+        actions.appendChild(revokeAdminBtn);
+      }
+    } else {
+      var makeAdminBtn = document.createElement('button');
+      makeAdminBtn.type = 'button';
+      makeAdminBtn.className = 'btn btn-primary';
+      makeAdminBtn.textContent = 'Tornar Admin';
+      makeAdminBtn.addEventListener('click', function(){ makeAdmin(u.email); });
+      actions.appendChild(makeAdminBtn);
+    }
+    row.appendChild(actions);
     list.appendChild(row);
   });
 }
@@ -486,6 +510,16 @@ async function decideAccessRequest(id, approve){
 
 async function revokeAccess(email){
   await supabaseClient.rpc('revoke_access', { target_email: email });
+  loadAccessTab();
+}
+
+async function makeAdmin(email){
+  await supabaseClient.rpc('make_admin', { target_email: email });
+  loadAccessTab();
+}
+
+async function revokeAdmin(email){
+  await supabaseClient.rpc('revoke_admin', { target_email: email });
   loadAccessTab();
 }
 
