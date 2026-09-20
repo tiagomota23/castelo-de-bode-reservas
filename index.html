@@ -22,7 +22,7 @@
   <header class="topbar">
     <button id="today-btn" class="today-btn" type="button">Hoje</button>
     <button id="prev-month" class="icon-btn" aria-label="Mês anterior">‹</button>
-    <div class="month-label"><span id="month-name"></span> <span id="year-name"></span></div>
+    <button id="month-label-btn" class="month-label" type="button"><span id="month-name"></span> <span id="year-name"></span></button>
     <button id="next-month" class="icon-btn" aria-label="Mês seguinte">›</button>
     <button id="lock-btn" class="icon-btn lock-btn" aria-label="Bloquear" title="Bloquear">&#9210;</button>
   </header>
@@ -42,6 +42,17 @@
       <button id="day-panel-close" class="icon-btn" aria-label="Fechar">&#10005;</button>
     </div>
     <div id="day-panel-list" class="booking-list"></div>
+  </div>
+</div>
+
+<div id="month-picker-backdrop" class="modal-backdrop" hidden>
+  <div class="modal month-picker-modal" role="dialog" aria-modal="true" aria-labelledby="month-picker-title">
+    <div class="month-picker-head">
+      <button id="mp-prev-year" class="icon-btn" type="button" aria-label="Ano anterior">‹</button>
+      <h2 id="month-picker-title"></h2>
+      <button id="mp-next-year" class="icon-btn" type="button" aria-label="Ano seguinte">›</button>
+    </div>
+    <div id="month-picker-grid" class="month-picker-grid"></div>
   </div>
 </div>
 

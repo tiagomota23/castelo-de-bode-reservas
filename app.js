@@ -28,6 +28,7 @@ var selectedDate = null;
 var highlightRange = null;
 var editingId = null;
 var deleteArmed = false;
+var pickerYear = null;
 var loginChallenge = [];
 
 function pad2(n){ return n<10 ? '0'+n : ''+n; }
@@ -374,6 +375,47 @@ function wireCalendarNav(){
   };
   document.getElementById('day-panel-close').onclick = closeDayPanel;
   wireGridSwipeNav();
+  wireMonthPicker();
+}
+
+function renderMonthPicker(){
+  document.getElementById('month-picker-title').textContent = pickerYear;
+  var grid = document.getElementById('month-picker-grid');
+  grid.innerHTML = '';
+  var today = new Date();
+  MONTHS.forEach(function(name, i){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'month-picker-btn';
+    if (pickerYear === today.getFullYear() && i === today.getMonth()) btn.classList.add('is-today');
+    if (pickerYear === viewDate.getFullYear() && i === viewDate.getMonth()) btn.classList.add('is-selected');
+    btn.textContent = name.slice(0,3);
+    btn.addEventListener('click', function(){
+      viewDate = new Date(pickerYear, i, 1);
+      renderCalendar();
+      closeMonthPicker();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function openMonthPicker(){
+  pickerYear = viewDate.getFullYear();
+  renderMonthPicker();
+  document.getElementById('month-picker-backdrop').hidden = false;
+}
+
+function closeMonthPicker(){
+  document.getElementById('month-picker-backdrop').hidden = true;
+}
+
+function wireMonthPicker(){
+  document.getElementById('month-label-btn').onclick = openMonthPicker;
+  document.getElementById('mp-prev-year').onclick = function(){ pickerYear--; renderMonthPicker(); };
+  document.getElementById('mp-next-year').onclick = function(){ pickerYear++; renderMonthPicker(); };
+  document.getElementById('month-picker-backdrop').addEventListener('click', function(e){
+    if (e.target.id === 'month-picker-backdrop') closeMonthPicker();
+  });
 }
 
 function wireGridSwipeNav(){

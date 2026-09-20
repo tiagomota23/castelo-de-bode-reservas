@@ -61,7 +61,8 @@ h1,h2{text-wrap:balance;}
 /* ---- app shell ---- */
 #app-screen{padding-bottom:100px;}
 .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--border);}
-.month-label{flex:1;text-align:center;font-family:var(--font-display);font-size:19px;font-variant-numeric:tabular-nums;}
+.month-label{flex:1;text-align:center;font-family:var(--font-display);font-size:19px;font-variant-numeric:tabular-nums;background:none;border:none;color:inherit;padding:6px 4px;cursor:pointer;border-radius:var(--radius-sm);}
+.month-label:active{background:var(--surface-2);}
 .lock-btn{margin-left:2px;}
 .banner{margin:10px 16px 0;padding:10px 14px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13px;}
 .legend{display:flex;flex-wrap:wrap;gap:14px;padding:14px 16px 4px;font-size:13px;color:var(--text-muted);}
@@ -101,6 +102,13 @@ h1,h2{text-wrap:balance;}
 .modal{width:100%;max-width:480px;max-height:90vh;overflow-y:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom,0px));}
 @media (min-width:520px){.modal-backdrop{align-items:center;}.modal{border-radius:var(--radius);}}
 .modal h2{font-family:var(--font-display);font-size:20px;margin:0 0 16px;}
+.month-picker-modal{max-width:340px;}
+.month-picker-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.month-picker-head h2{font-family:var(--font-display);font-size:20px;margin:0;font-variant-numeric:tabular-nums;}
+.month-picker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.month-picker-btn{padding:14px 4px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:14px;cursor:pointer;text-transform:capitalize;}
+.month-picker-btn.is-today{border-color:var(--accent);color:var(--accent);font-weight:600;}
+.month-picker-btn.is-selected{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text-muted);margin-bottom:14px;}
 .field input[type=date],.field input[type=text]{font-size:16px;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;}
 .field-inline{flex-direction:row;align-items:center;gap:10px;font-size:14px;color:var(--text);}
