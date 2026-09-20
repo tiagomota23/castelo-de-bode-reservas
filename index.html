@@ -31,6 +31,7 @@
     <button id="prev-month" class="icon-btn" aria-label="Mês anterior">‹</button>
     <button id="month-label-btn" class="month-label" type="button"><span id="month-name"></span> <span id="year-name"></span></button>
     <button id="next-month" class="icon-btn" aria-label="Mês seguinte">›</button>
+    <button id="history-btn" class="icon-btn" aria-label="Histórico" title="Histórico de alterações">↺</button>
     <button id="lock-btn" class="icon-btn lock-btn" aria-label="Bloquear" title="Bloquear">&#9210;</button>
   </header>
   <div id="local-banner" class="banner" hidden>Sincronização indisponível — recarrega a página. As alterações não são partilhadas neste estado.</div>
@@ -49,6 +50,14 @@
       <button id="day-panel-close" class="icon-btn" aria-label="Fechar">&#10005;</button>
     </div>
     <div id="day-panel-list" class="booking-list"></div>
+  </div>
+  <div id="history-panel" class="day-panel" hidden>
+    <div class="day-panel-head">
+      <h2>Histórico de alterações</h2>
+      <button id="history-panel-close" class="icon-btn" aria-label="Fechar">&#10005;</button>
+    </div>
+    <p id="history-error" class="form-error" hidden></p>
+    <div id="history-list" class="booking-list"></div>
   </div>
 </div>
 

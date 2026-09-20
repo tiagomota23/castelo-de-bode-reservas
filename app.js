@@ -356,8 +356,109 @@ function wireCalendarNav(){
     if (bookingsForDate(d).length){ openDayPanel(d); } else { openModal(null, d); }
   };
   document.getElementById('day-panel-close').onclick = closeDayPanel;
+  document.getElementById('history-btn').onclick = openHistoryPanel;
+  document.getElementById('history-panel-close').onclick = closeHistoryPanel;
   wireGridSwipeNav();
   wireMonthPicker();
+}
+
+function summarizeBooking(b){
+  if (!b) return '(vazio)';
+  var users = b.users.map(function(u){ return (USERS[u] && USERS[u].label) || u; }).join('+');
+  var s = users + ' · ' + formatRange(b.start, b.end);
+  if (b.desc) s += ' (' + b.desc + ')';
+  if (b.exclusive) s += ' ★';
+  return s;
+}
+
+function renderHistoryList(entries){
+  var list = document.getElementById('history-list');
+  list.innerHTML = '';
+  if (!entries.length){
+    list.innerHTML = '<p class="empty-note">Sem alterações registadas.</p>';
+    return;
+  }
+  var actionLabels = {insert:'Criada', update:'Editada', delete:'Eliminada'};
+  entries.forEach(function(entry){
+    var row = document.createElement('div');
+    row.className = 'history-row';
+    var when = new Date(entry.changed_at);
+    var whenTxt = pad2(when.getDate())+'/'+pad2(when.getMonth()+1)+' '+pad2(when.getHours())+':'+pad2(when.getMinutes());
+
+    var body = '';
+    if (entry.action === 'update'){
+      body = '<div class="history-before">'+escapeHtml(summarizeBooking(rowToBooking(entry.old_data)))+'</div>' +
+             '<div class="history-arrow">↓</div>' +
+             '<div class="history-after">'+escapeHtml(summarizeBooking(rowToBooking(entry.new_data)))+'</div>';
+    } else if (entry.action === 'insert'){
+      body = '<div class="history-after">'+escapeHtml(summarizeBooking(rowToBooking(entry.new_data)))+'</div>';
+    } else {
+      body = '<div class="history-before">'+escapeHtml(summarizeBooking(rowToBooking(entry.old_data)))+'</div>';
+    }
+
+    row.innerHTML =
+      '<div class="history-row-top">' +
+        '<span class="history-badge history-badge-'+entry.action+'">'+(actionLabels[entry.action]||entry.action)+'</span>' +
+        '<span class="history-time">'+whenTxt+'</span>' +
+      '</div>' +
+      '<div class="history-body">'+body+'</div>';
+
+    var revertBtn = document.createElement('button');
+    revertBtn.type = 'button';
+    revertBtn.className = 'btn btn-secondary history-revert-btn';
+    revertBtn.textContent = entry.action === 'insert' ? 'Desfazer (eliminar)' : 'Reverter';
+    revertBtn.addEventListener('click', function(){ revertHistoryEntry(entry); });
+    row.appendChild(revertBtn);
+
+    list.appendChild(row);
+  });
+}
+
+async function openHistoryPanel(){
+  document.getElementById('history-panel').hidden = false;
+  document.getElementById('history-error').hidden = true;
+  var list = document.getElementById('history-list');
+  list.innerHTML = '<p class="empty-note">A carregar…</p>';
+  if (!supabaseClient){
+    list.innerHTML = '<p class="empty-note">Sincronização indisponível.</p>';
+    return;
+  }
+  var res = await supabaseClient.from('booking_history').select('*').order('changed_at', {ascending:false}).limit(100);
+  if (res.error){
+    list.innerHTML = '<p class="empty-note">Não foi possível carregar o histórico.</p>';
+    return;
+  }
+  renderHistoryList(res.data || []);
+}
+
+function closeHistoryPanel(){
+  document.getElementById('history-panel').hidden = true;
+}
+
+async function revertHistoryEntry(entry){
+  var errEl = document.getElementById('history-error');
+  errEl.hidden = true;
+  var target = entry.action === 'insert' ? null : rowToBooking(entry.old_data);
+  var next = state.bookings.filter(function(b){ return b.id !== entry.booking_id; });
+  if (target){
+    var conflict = findConflict(target.start, target.end, target.id);
+    if (conflict){
+      errEl.hidden = false;
+      errEl.textContent = 'Não é possível reverter: conflita com "'+(conflict.desc || conflict.users.join('+'))+'" ('+formatRange(conflict.start, conflict.end)+').';
+      return;
+    }
+    next.push(target);
+  }
+  next.sort(function(a,b){ return a.start.localeCompare(b.start); });
+  var ok = await commitBookings(next);
+  if (!ok){
+    errEl.hidden = false;
+    errEl.textContent = supabaseClient ? 'Não foi possível reverter. Tenta novamente.' : 'Sincronização indisponível.';
+    return;
+  }
+  renderCalendar();
+  if (selectedDate) openDayPanel(selectedDate);
+  openHistoryPanel();
 }
 
 function renderMonthPicker(){
