@@ -1,5 +1,17 @@
 'use strict';
 
+// iOS Safari sometimes restores this page from the back-forward cache
+// instead of doing a real reload after returning from the Google OAuth
+// redirect (e.g. sign out then "Entrar com Google" again). Supabase only
+// parses the ?code= param from the URL on the initial script load, so a
+// bfcache restore silently misses it and gets stuck on the login screen.
+// Force a real reload when that happens.
+window.addEventListener('pageshow', function(event){
+  if (event.persisted){
+    window.location.reload();
+  }
+});
+
 var USERS = {
   'AM':  {label:'AM',  color:'#1F5F74'},
   'T&C': {label:'T&C', color:'#A15C3B'},
