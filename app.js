@@ -7,15 +7,9 @@ var USERS = {
 };
 var SHORT_LABEL = { 'AM':'AM', 'T&C':'TC', 'F&T':'FT' };
 
-var PIN_SALT = 'cdb-2026-familia-salt-v1';
-var PIN_HASHES = {
-  JL:'bc63e22f9523efe4baf4fcdb756d06977ef4f82c0fce5c32f4c77410e1697d94',
-  AM:'686cb928bece00b4270c5878e6b71b54f263f96bab3586e5e5c18787b1ec13be',
-  RM:'6d31a4c50f60dc57589fd7a975ac2f4fb819d1303d630ae614063000400e525e',
-  MG:'d94c9755650af89c198d76aeb92066dd0096c3441d84c8d5214b91a1a48c8455',
-  LM:'e7c20f7c498d2a39306d03acca72ec3da84573a74232d5f1eda7b9f52513878f'
-};
-var PIN_KEYS = Object.keys(PIN_HASHES);
+// The actual digits live server-side only (Supabase Edge Function "verify-pin"),
+// never shipped to the client — see reservas-app/edge_function_verify_pin.ts.
+var PIN_KEYS = ['JL','AM','RM','MG','LM'];
 
 var MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 var WEEKDAYS = ['seg','ter','qua','qui','sex','sáb','dom'];
@@ -43,13 +37,6 @@ function escapeHtml(s){
   });
 }
 
-async function sha256hex(msg){
-  var enc = new TextEncoder().encode(msg);
-  var buf = await crypto.subtle.digest('SHA-256', enc);
-  var arr = Array.from(new Uint8Array(buf));
-  return arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-}
-
 function pickThree(){
   var keys = PIN_KEYS.slice();
   for (var i = keys.length-1; i>0; i--){
@@ -59,15 +46,6 @@ function pickThree(){
   return keys.slice(0,3);
 }
 
-function getLockState(){
-  var raw = null;
-  try { raw = localStorage.getItem('cdb_lock'); } catch(e){}
-  if (!raw) return {fails:0, until:0};
-  try { var s = JSON.parse(raw); return {fails:s.fails||0, until:s.until||0}; } catch(e){ return {fails:0, until:0}; }
-}
-function setLockState(s){
-  try { localStorage.setItem('cdb_lock', JSON.stringify(s)); } catch(e){}
-}
 function renderLocked(until){
   var wrap = document.getElementById('login-fields');
   wrap.innerHTML = '';
@@ -104,12 +82,6 @@ function showLogin(){
 }
 
 function wireLogin(){
-  var lock = getLockState();
-  var now = Date.now();
-  if (lock.until && now < lock.until){
-    renderLocked(lock.until);
-    return;
-  }
   document.getElementById('login-error').hidden = true;
   document.getElementById('login-submit').disabled = false;
   loginChallenge = pickThree();
@@ -153,38 +125,48 @@ function wireLogin(){
 }
 
 async function attemptLogin(){
-  var lock = getLockState();
-  var now = Date.now();
-  if (lock.until && now < lock.until){ renderLocked(lock.until); return; }
   var errEl = document.getElementById('login-error');
   errEl.hidden = true;
-  var ok = true;
+  var guess = {};
+  var allFilled = true;
   for (var i=0;i<loginChallenge.length;i++){
     var key = loginChallenge[i];
     var el = document.getElementById('pin-'+i);
     var val = el ? el.value : '';
-    if (!val){ ok = false; continue; }
-    var hash = await sha256hex(key + ':' + val + ':' + PIN_SALT);
-    if (hash !== PIN_HASHES[key]) ok = false;
+    if (!val) allFilled = false;
+    guess[key] = val;
   }
-  if (ok){
-    setLockState({fails:0, until:0});
-    try { localStorage.setItem('cdb_unlocked','1'); } catch(e){}
-    showApp();
-  } else {
-    var fails = (lock.fails||0) + 1;
-    var newLock = {fails: fails, until: 0};
-    if (fails >= 2){
-      var lockSeconds = Math.min(30 * Math.pow(2, fails-2), 3600);
-      newLock.until = now + lockSeconds*1000;
+  if (!allFilled) return;
+  var submit = document.getElementById('login-submit');
+  submit.disabled = true;
+  try {
+    var res = await fetch(window.SUPABASE_URL + '/functions/v1/verify-pin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': window.SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ guess: guess })
+    });
+    var data = await res.json();
+    if (res.status === 429 && data.lockedUntil){
+      renderLocked(data.lockedUntil);
+      return;
     }
-    setLockState(newLock);
-    if (newLock.until){
-      renderLocked(newLock.until);
+    if (data.ok){
+      try { localStorage.setItem('cdb_unlocked','1'); } catch(e){}
+      showApp();
     } else {
+      errEl.textContent = 'Códigos incorretos. Novo desafio gerado — tenta outra vez.';
       errEl.hidden = false;
+      submit.disabled = false;
       wireLogin();
     }
+  } catch(e){
+    errEl.hidden = false;
+    errEl.textContent = 'Não foi possível validar agora. Verifica a ligação e tenta outra vez.';
+    submit.disabled = false;
   }
 }
 
