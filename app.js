@@ -7,9 +7,7 @@ var USERS = {
 };
 var SHORT_LABEL = { 'AM':'AM', 'T&C':'TC', 'F&T':'FT' };
 
-// The actual digits live server-side only (Supabase Edge Function "verify-pin"),
-// never shipped to the client — see reservas-app/edge_function_verify_pin.ts.
-var PIN_KEYS = ['JL','AM','RM','MG','LM'];
+var ADMIN_EMAIL = 'tiago.mota@gmail.com';
 
 var MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 var WEEKDAYS = ['seg','ter','qua','qui','sex','sáb','dom'];
@@ -23,7 +21,8 @@ var highlightRange = null;
 var editingId = null;
 var deleteArmed = false;
 var pickerYear = null;
-var loginChallenge = [];
+var currentUser = null;
+var appBooted = false;
 
 function pad2(n){ return n<10 ? '0'+n : ''+n; }
 function toISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
@@ -37,43 +36,39 @@ function escapeHtml(s){
   });
 }
 
-function pickThree(){
-  var keys = PIN_KEYS.slice();
-  for (var i = keys.length-1; i>0; i--){
-    var j = Math.floor(Math.random()*(i+1));
-    var t = keys[i]; keys[i]=keys[j]; keys[j]=t;
-  }
-  return keys.slice(0,3);
-}
-
-function renderLocked(until){
-  var wrap = document.getElementById('login-fields');
-  wrap.innerHTML = '';
-  var errEl = document.getElementById('login-error');
-  var submit = document.getElementById('login-submit');
-  submit.disabled = true;
-  var timer = null;
-  function tick(){
-    var now = Date.now();
-    var remaining = Math.max(0, Math.ceil((until-now)/1000));
-    if (remaining <= 0){
-      if (timer) clearInterval(timer);
-      submit.disabled = false;
-      wireLogin();
-      return;
-    }
-    errEl.hidden = false;
-    errEl.textContent = 'Demasiadas tentativas incorretas. Tenta novamente em ' + remaining + 's.';
-  }
-  tick();
-  timer = setInterval(tick, 1000);
-}
-
 function boot(){
-  wireLogin();
-  var unlocked = false;
-  try { unlocked = localStorage.getItem('cdb_unlocked') === '1'; } catch(e){}
-  if (unlocked) { showApp(); } else { showLogin(); }
+  supabaseClient = createSupabaseClient();
+  if (!supabaseClient){
+    document.getElementById('local-banner').hidden = false;
+    showLogin();
+    showLoginGoogleState();
+    return;
+  }
+  wireLoginButtons();
+  supabaseClient.auth.onAuthStateChange(function(_event, session){
+    handleSession(session);
+  });
+  supabaseClient.auth.getSession().then(function(res){
+    handleSession(res.data.session);
+  });
+}
+
+function createSupabaseClient(){
+  if (!window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return null;
+  return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+}
+
+function wireLoginButtons(){
+  document.getElementById('google-signin-btn').onclick = function(){
+    supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+  };
+  document.getElementById('signout-btn').onclick = function(){
+    supabaseClient.auth.signOut();
+  };
+  document.getElementById('request-access-btn').onclick = requestAccess;
 }
 
 function showLogin(){
@@ -81,104 +76,71 @@ function showLogin(){
   document.getElementById('app-screen').hidden = true;
 }
 
-function wireLogin(){
-  document.getElementById('login-error').hidden = true;
-  document.getElementById('login-submit').disabled = false;
-  loginChallenge = pickThree();
-  var wrap = document.getElementById('login-fields');
-  wrap.innerHTML = '';
-  loginChallenge.forEach(function(key, i){
-    var field = document.createElement('label');
-    field.className = 'pin-field';
-    var span = document.createElement('span');
-    span.textContent = key;
-    var input = document.createElement('input');
-    input.type = 'tel';
-    input.inputMode = 'numeric';
-    input.maxLength = 1;
-    input.className = 'pin-input';
-    input.id = 'pin-' + i;
-    input.autocomplete = 'off';
-    field.appendChild(span);
-    field.appendChild(input);
-    wrap.appendChild(field);
-    input.addEventListener('input', function(){
-      input.value = input.value.replace(/[^0-9]/g,'').slice(0,1);
-      if (input.value && i < loginChallenge.length-1){
-        var next = document.getElementById('pin-'+(i+1));
-        if (next) next.focus();
-      }
-      var allFilled = true;
-      for (var k=0;k<loginChallenge.length;k++){
-        var el = document.getElementById('pin-'+k);
-        if (!el || !el.value){ allFilled = false; break; }
-      }
-      if (allFilled) attemptLogin();
-    });
-    input.addEventListener('keydown', function(e){
-      if (e.key === 'Enter') attemptLogin();
-    });
-  });
-  document.getElementById('login-submit').onclick = attemptLogin;
-  var first = document.getElementById('pin-0');
-  if (first) setTimeout(function(){ first.focus(); }, 30);
+function showLoginGoogleState(){
+  document.getElementById('login-google').hidden = false;
+  document.getElementById('login-unauthorized').hidden = true;
 }
 
-async function attemptLogin(){
-  var errEl = document.getElementById('login-error');
-  errEl.hidden = true;
-  var guess = {};
-  var allFilled = true;
-  for (var i=0;i<loginChallenge.length;i++){
-    var key = loginChallenge[i];
-    var el = document.getElementById('pin-'+i);
-    var val = el ? el.value : '';
-    if (!val) allFilled = false;
-    guess[key] = val;
+async function handleSession(session){
+  if (!session){
+    appBooted = false;
+    currentUser = null;
+    showLogin();
+    showLoginGoogleState();
+    return;
   }
-  if (!allFilled) return;
-  var submit = document.getElementById('login-submit');
-  submit.disabled = true;
-  try {
-    var res = await fetch(window.SUPABASE_URL + '/functions/v1/verify-pin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': window.SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ guess: guess })
-    });
-    var data = await res.json();
-    if (res.status === 429 && data.lockedUntil){
-      renderLocked(data.lockedUntil);
-      return;
-    }
-    if (data.ok){
-      try { localStorage.setItem('cdb_unlocked','1'); } catch(e){}
-      showApp();
-    } else {
-      errEl.textContent = 'Códigos incorretos. Novo desafio gerado — tenta outra vez.';
-      errEl.hidden = false;
-      submit.disabled = false;
-      wireLogin();
-    }
-  } catch(e){
-    errEl.hidden = false;
-    errEl.textContent = 'Não foi possível validar agora. Verifica a ligação e tenta outra vez.';
-    submit.disabled = false;
+  currentUser = { email: session.user.email, id: session.user.id };
+  if (appBooted) return;
+  var res = await supabaseClient.rpc('is_allowed_user');
+  if (res.error){
+    showLogin();
+    showLoginGoogleState();
+    return;
   }
+  if (res.data){
+    appBooted = true;
+    await showApp();
+  } else {
+    showLogin();
+    await showUnauthorizedState();
+  }
+}
+
+async function showUnauthorizedState(){
+  document.getElementById('login-google').hidden = true;
+  document.getElementById('login-unauthorized').hidden = false;
+  document.getElementById('unauthorized-email').textContent = currentUser.email;
+  var statusEl = document.getElementById('access-status-msg');
+  var reqBtn = document.getElementById('request-access-btn');
+  var res = await supabaseClient.rpc('my_access_status');
+  var status = res.error ? 'none' : res.data;
+  if (status === 'pending'){
+    statusEl.textContent = 'Pedido enviado — aguarda aprovação.';
+    reqBtn.hidden = true;
+  } else if (status === 'denied'){
+    statusEl.textContent = 'O teu pedido foi recusado.';
+    reqBtn.hidden = false;
+    reqBtn.textContent = 'Pedir acesso outra vez';
+  } else {
+    statusEl.textContent = '';
+    reqBtn.hidden = false;
+    reqBtn.textContent = 'Pedir acesso';
+  }
+}
+
+async function requestAccess(){
+  var res = await supabaseClient.rpc('request_access');
+  if (!res.error) await showUnauthorizedState();
 }
 
 async function showApp(){
   document.getElementById('login-screen').hidden = true;
   document.getElementById('app-screen').hidden = false;
   document.getElementById('lock-btn').onclick = function(){
-    try { localStorage.removeItem('cdb_unlocked'); } catch(e){}
-    showLogin();
-    wireLogin();
+    supabaseClient.auth.signOut();
   };
-  await initSupabase();
+  document.getElementById('history-btn').hidden = (currentUser.email !== ADMIN_EMAIL);
+  await loadBookings();
   renderCalendar();
   wireCalendarNav();
   wireModal();
@@ -210,17 +172,12 @@ function bookingToRow(b){
   };
 }
 
-async function initSupabase(){
+async function loadBookings(){
   try {
-    if (!window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY){
-      throw new Error('supabase not configured');
-    }
-    supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
     var res = await supabaseClient.from('bookings').select('*');
     if (res.error) throw res.error;
     state.bookings = (res.data || []).map(rowToBooking);
   } catch(e){
-    supabaseClient = null;
     document.getElementById('local-banner').hidden = false;
     return;
   }
@@ -356,8 +313,10 @@ function wireCalendarNav(){
     if (bookingsForDate(d).length){ openDayPanel(d); } else { openModal(null, d); }
   };
   document.getElementById('day-panel-close').onclick = closeDayPanel;
-  document.getElementById('history-btn').onclick = openHistoryPanel;
+  document.getElementById('history-btn').onclick = openAdminPanel;
   document.getElementById('history-panel-close').onclick = closeHistoryPanel;
+  document.getElementById('admin-tab-history').onclick = function(){ switchAdminTab('history'); };
+  document.getElementById('admin-tab-access').onclick = function(){ switchAdminTab('access'); };
   wireGridSwipeNav();
   wireMonthPicker();
 }
@@ -396,10 +355,11 @@ function renderHistoryList(entries){
       body = '<div class="history-before">'+escapeHtml(summarizeBooking(rowToBooking(entry.old_data)))+'</div>';
     }
 
+    var whoTxt = entry.changed_by ? ' · '+escapeHtml(entry.changed_by) : '';
     row.innerHTML =
       '<div class="history-row-top">' +
         '<span class="history-badge history-badge-'+entry.action+'">'+(actionLabels[entry.action]||entry.action)+'</span>' +
-        '<span class="history-time">'+whenTxt+'</span>' +
+        '<span class="history-time">'+whenTxt+whoTxt+'</span>' +
       '</div>' +
       '<div class="history-body">'+body+'</div>';
 
@@ -414,9 +374,26 @@ function renderHistoryList(entries){
   });
 }
 
-async function openHistoryPanel(){
+function openAdminPanel(){
   document.getElementById('history-panel').hidden = false;
   document.getElementById('history-error').hidden = true;
+  switchAdminTab('history');
+}
+
+function closeHistoryPanel(){
+  document.getElementById('history-panel').hidden = true;
+}
+
+function switchAdminTab(tab){
+  document.getElementById('admin-tab-history').classList.toggle('is-active', tab === 'history');
+  document.getElementById('admin-tab-access').classList.toggle('is-active', tab === 'access');
+  document.getElementById('history-list').hidden = tab !== 'history';
+  document.getElementById('access-list').hidden = tab !== 'access';
+  document.getElementById('history-error').hidden = true;
+  if (tab === 'history') loadHistoryTab(); else loadAccessTab();
+}
+
+async function loadHistoryTab(){
   var list = document.getElementById('history-list');
   list.innerHTML = '<p class="empty-note">A carregar…</p>';
   if (!supabaseClient){
@@ -431,8 +408,85 @@ async function openHistoryPanel(){
   renderHistoryList(res.data || []);
 }
 
-function closeHistoryPanel(){
-  document.getElementById('history-panel').hidden = true;
+async function loadAccessTab(){
+  var list = document.getElementById('access-list');
+  list.innerHTML = '<p class="empty-note">A carregar…</p>';
+  var reqRes = await supabaseClient.rpc('list_access_requests');
+  var usersRes = await supabaseClient.rpc('list_allowed_users');
+  if (reqRes.error || usersRes.error){
+    list.innerHTML = '<p class="empty-note">Não foi possível carregar.</p>';
+    return;
+  }
+  renderAccessTab(reqRes.data || [], usersRes.data || []);
+}
+
+function renderAccessTab(requests, users){
+  var list = document.getElementById('access-list');
+  list.innerHTML = '';
+  var pending = requests.filter(function(r){ return r.status === 'pending'; });
+
+  var h1 = document.createElement('h3');
+  h1.className = 'access-section-title';
+  h1.textContent = 'Pedidos pendentes';
+  list.appendChild(h1);
+
+  if (!pending.length){
+    var p = document.createElement('p');
+    p.className = 'empty-note';
+    p.textContent = 'Sem pedidos pendentes.';
+    list.appendChild(p);
+  } else {
+    pending.forEach(function(r){
+      var row = document.createElement('div');
+      row.className = 'history-row';
+      row.innerHTML = '<div class="history-row-top"><span>'+escapeHtml(r.email)+'</span></div>';
+      var actions = document.createElement('div');
+      actions.className = 'history-row-actions';
+      var approveBtn = document.createElement('button');
+      approveBtn.type = 'button';
+      approveBtn.className = 'btn btn-primary';
+      approveBtn.textContent = 'Aprovar';
+      approveBtn.addEventListener('click', function(){ decideAccessRequest(r.id, true); });
+      var denyBtn = document.createElement('button');
+      denyBtn.type = 'button';
+      denyBtn.className = 'btn btn-secondary';
+      denyBtn.textContent = 'Rejeitar';
+      denyBtn.addEventListener('click', function(){ decideAccessRequest(r.id, false); });
+      actions.appendChild(approveBtn);
+      actions.appendChild(denyBtn);
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+  }
+
+  var h2 = document.createElement('h3');
+  h2.className = 'access-section-title';
+  h2.textContent = 'Utilizadores autorizados';
+  list.appendChild(h2);
+  users.forEach(function(u){
+    var row = document.createElement('div');
+    row.className = 'history-row';
+    row.innerHTML = '<div class="history-row-top"><span>'+escapeHtml(u.email)+'</span></div>';
+    if (u.email !== ADMIN_EMAIL){
+      var revokeBtn = document.createElement('button');
+      revokeBtn.type = 'button';
+      revokeBtn.className = 'btn btn-secondary history-revert-btn';
+      revokeBtn.textContent = 'Remover acesso';
+      revokeBtn.addEventListener('click', function(){ revokeAccess(u.email); });
+      row.appendChild(revokeBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+async function decideAccessRequest(id, approve){
+  await supabaseClient.rpc(approve ? 'approve_access_request' : 'deny_access_request', { req_id: id });
+  loadAccessTab();
+}
+
+async function revokeAccess(email){
+  await supabaseClient.rpc('revoke_access', { target_email: email });
+  loadAccessTab();
 }
 
 async function revertHistoryEntry(entry){
@@ -458,7 +512,7 @@ async function revertHistoryEntry(entry){
   }
   renderCalendar();
   if (selectedDate) openDayPanel(selectedDate);
-  openHistoryPanel();
+  loadHistoryTab();
 }
 
 function renderMonthPicker(){
