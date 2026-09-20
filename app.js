@@ -780,14 +780,17 @@ function openModal(id, prefillDate){
     var boxes = document.querySelectorAll('input[name="users"]');
     for (var i=0;i<boxes.length;i++) boxes[i].checked = b.users.indexOf(boxes[i].value) !== -1;
     delBtn.hidden = false;
+    // Shows who it's currently attributed to; only changes to the viewer's
+    // own email if they actually save an edit (see saveBooking).
+    document.getElementById('f-by').value = b.by || '';
   } else {
     document.getElementById('modal-title').textContent = 'Nova reserva';
     var d = prefillDate || todayISO();
     document.getElementById('f-start').value = d;
     document.getElementById('f-end').value = d;
     delBtn.hidden = true;
+    document.getElementById('f-by').value = (currentUser && currentUser.email) || '';
   }
-  document.getElementById('f-by').value = (currentUser && currentUser.email) || '';
   validateDatesLive();
   document.getElementById('modal-backdrop').hidden = false;
 }
