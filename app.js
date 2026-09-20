@@ -62,7 +62,7 @@ function wireLoginButtons(){
   document.getElementById('google-signin-btn').onclick = function(){
     supabaseClient.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + window.location.pathname }
+      options: { redirectTo: window.location.href }
     });
   };
   document.getElementById('signout-btn').onclick = function(){
@@ -140,11 +140,25 @@ async function showApp(){
     supabaseClient.auth.signOut();
   };
   var adminRes = await supabaseClient.rpc('is_admin_user');
-  document.getElementById('history-btn').hidden = !(adminRes.data);
+  var isAdmin = !!adminRes.data;
+  document.getElementById('history-btn').hidden = !isAdmin;
   await loadBookings();
   renderCalendar();
   wireCalendarNav();
   wireModal();
+  if (isAdmin) await handleUrlAdminAction();
+}
+
+async function handleUrlAdminAction(){
+  var params = new URLSearchParams(window.location.search);
+  var approveId = params.get('approve');
+  var denyId = params.get('deny');
+  if (!approveId && !denyId) return;
+  if (approveId) await supabaseClient.rpc('approve_access_request', { req_id: approveId });
+  if (denyId) await supabaseClient.rpc('deny_access_request', { req_id: denyId });
+  history.replaceState(null, '', window.location.pathname);
+  document.getElementById('history-panel').hidden = false;
+  switchAdminTab('access');
 }
 
 function rowToBooking(row){
