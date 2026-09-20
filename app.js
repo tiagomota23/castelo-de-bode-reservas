@@ -12,6 +12,16 @@ window.addEventListener('pageshow', function(event){
   }
 });
 
+// Belt-and-braces for the same class of bug: capture, before anything else
+// runs, whether this page load came back from Google with an auth code —
+// the SDK strips it from the URL once it (successfully or not) tries to
+// use it, so this has to be read synchronously up front. If we finish
+// booting with no session despite that, the code/session exchange lost a
+// race (e.g. localStorage not flushed yet on iOS Safari before the redirect
+// away, not just bfcache) — retry once with a genuine reload rather than
+// leaving the user stuck on the login screen.
+var urlHadOAuthCode = /[?&](code|access_token)=/.test(window.location.search + window.location.hash);
+
 var USERS = {
   'AM':  {label:'AM',  color:'#1F5F74'},
   'T&C': {label:'T&C', color:'#A15C3B'},
@@ -62,7 +72,16 @@ function boot(){
   });
   supabaseClient.auth.getSession().then(function(res){
     handleSession(res.data.session);
+    retryOnStuckOAuthReturn(res.data.session);
   });
+}
+
+function retryOnStuckOAuthReturn(session){
+  if (session || !urlHadOAuthCode) return;
+  var flag = 'oauthRetryDone';
+  if (sessionStorage.getItem(flag)) return;
+  sessionStorage.setItem(flag, '1');
+  window.location.reload();
 }
 
 function createSupabaseClient(){
@@ -72,6 +91,7 @@ function createSupabaseClient(){
 
 function wireLoginButtons(){
   document.getElementById('google-signin-btn').onclick = function(){
+    sessionStorage.removeItem('oauthRetryDone');
     supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.href }
