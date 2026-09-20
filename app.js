@@ -166,11 +166,21 @@ async function handleUrlAdminAction(){
   var approveId = params.get('approve');
   var denyId = params.get('deny');
   if (!approveId && !denyId) return;
-  if (approveId) await supabaseClient.rpc('approve_access_request', { req_id: approveId });
-  if (denyId) await supabaseClient.rpc('deny_access_request', { req_id: denyId });
   history.replaceState(null, '', window.location.pathname);
   document.getElementById('history-panel').hidden = false;
   switchAdminTab('access');
+
+  var reqId = approveId || denyId;
+  var isApprove = !!approveId;
+  // Don't act on the link just because the page loaded (a mail client's link
+  // scanner/prefetch could "click" it) — require an explicit confirmation.
+  var listRes = await supabaseClient.rpc('list_access_requests');
+  var req = (listRes.data || []).filter(function(r){ return r.id === reqId; })[0];
+  if (!req || req.status !== 'pending') return;
+  var confirmed = window.confirm((isApprove ? 'Aprovar' : 'Rejeitar') + ' o acesso de ' + req.email + '?');
+  if (!confirmed) return;
+  await supabaseClient.rpc(isApprove ? 'approve_access_request' : 'deny_access_request', { req_id: reqId });
+  loadAccessTab();
 }
 
 function rowToBooking(row){
@@ -564,10 +574,14 @@ async function revertHistoryEntry(entry){
     next.push(target);
   }
   next.sort(function(a,b){ return a.start.localeCompare(b.start); });
-  var ok = await commitBookings(next);
-  if (!ok){
+  var result = await commitBookings(next);
+  if (!result.ok){
     errEl.hidden = false;
-    errEl.textContent = supabaseClient ? 'Não foi possível reverter. Tenta novamente.' : 'Sincronização indisponível.';
+    errEl.textContent = !supabaseClient
+      ? 'Sincronização indisponível.'
+      : (result.conflict
+        ? 'Outra pessoa reservou essas datas entretanto. Recarrega e tenta outra vez.'
+        : 'Não foi possível reverter. Tenta novamente.');
     return;
   }
   renderCalendar();
@@ -792,7 +806,10 @@ function findConflict(start, end, excludeId){
   return null;
 }
 
+var commitInFlight = false;
+
 async function saveBooking(){
+  if (commitInFlight) return;
   var start = document.getElementById('f-start').value;
   var end = document.getElementById('f-end').value;
   var desc = document.getElementById('f-desc').value.trim();
@@ -830,10 +847,22 @@ async function saveBooking(){
   next.push(booking);
   next.sort(function(a,b){ return a.start.localeCompare(b.start); });
 
-  var savedOk = await commitBookings(next);
-  if (!savedOk){
+  commitInFlight = true;
+  document.getElementById('f-save').disabled = true;
+  var result;
+  try {
+    result = await commitBookings(next);
+  } finally {
+    commitInFlight = false;
+    document.getElementById('f-save').disabled = false;
+  }
+  if (!result.ok){
     errEl.hidden = false;
-    errEl.textContent = supabaseClient ? 'Não foi possível guardar. Tenta novamente.' : 'Sincronização indisponível — recarrega a página e tenta outra vez. A reserva não foi partilhada.';
+    errEl.textContent = !supabaseClient
+      ? 'Sincronização indisponível — recarrega a página e tenta outra vez. A reserva não foi partilhada.'
+      : (result.conflict
+        ? 'Outra pessoa reservou essas datas entretanto. Recarrega e escolhe outras datas.'
+        : 'Não foi possível guardar. Tenta novamente.');
     return;
   }
   closeModal();
@@ -842,10 +871,18 @@ async function saveBooking(){
 }
 
 async function deleteBooking(){
-  if (!editingId) return;
+  if (!editingId || commitInFlight) return;
   var next = state.bookings.filter(function(b){ return b.id !== editingId; });
-  var deletedOk = await commitBookings(next);
-  if (!deletedOk){
+  commitInFlight = true;
+  document.getElementById('f-delete').disabled = true;
+  var result;
+  try {
+    result = await commitBookings(next);
+  } finally {
+    commitInFlight = false;
+    document.getElementById('f-delete').disabled = false;
+  }
+  if (!result.ok){
     var fe = document.getElementById('form-error');
     fe.hidden = false;
     fe.textContent = supabaseClient ? 'Não foi possível eliminar. Tenta novamente.' : 'Sincronização indisponível — recarrega a página e tenta outra vez. A eliminação não foi partilhada.';
@@ -886,7 +923,7 @@ function coalesceBookings(bookings){
 async function commitBookings(rawNext){
   if (!supabaseClient){
     document.getElementById('local-banner').hidden = false;
-    return false;
+    return { ok: false };
   }
   var prevBookings = state.bookings;
   var coalesced = coalesceBookings(rawNext);
@@ -913,9 +950,9 @@ async function commitBookings(rawNext){
       if (upRes.error) throw upRes.error;
     }
     state.bookings = coalesced;
-    return true;
+    return { ok: true };
   } catch(e){
-    return false;
+    return { ok: false, conflict: e && e.code === '23P01' };
   }
 }
 
