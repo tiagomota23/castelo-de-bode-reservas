@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reservas Castelo de Bode</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div id="login-screen" class="screen">
+  <div class="login-card">
+    <h1 class="wordmark">Castelo de Bode</h1>
+    <p class="login-sub">Introduz os dígitos para desbloquear</p>
+    <div id="login-fields" class="pin-fields"></div>
+    <p id="login-error" class="login-error" hidden>Códigos incorretos. Novo desafio gerado — tenta outra vez.</p>
+    <button id="login-submit" class="btn btn-primary" type="button">Entrar</button>
+  </div>
+</div>
+
+<div id="app-screen" class="screen" hidden>
+  <header class="topbar">
+    <button id="today-btn" class="today-btn" type="button">Hoje</button>
+    <button id="prev-month" class="icon-btn" aria-label="Mês anterior">‹</button>
+    <div class="month-label"><span id="month-name"></span> <span id="year-name"></span></div>
+    <button id="next-month" class="icon-btn" aria-label="Mês seguinte">›</button>
+    <button id="lock-btn" class="icon-btn lock-btn" aria-label="Bloquear" title="Bloquear">&#9210;</button>
+  </header>
+  <div id="local-banner" class="banner" hidden>Sincronização indisponível — recarrega a página. As alterações não são partilhadas neste estado.</div>
+  <div class="legend">
+    <span class="legend-item"><i class="dot" style="background:#1F5F74"></i>AM</span>
+    <span class="legend-item"><i class="dot" style="background:#A15C3B"></i>T&amp;C</span>
+    <span class="legend-item"><i class="dot" style="background:#4C7A52"></i>F&amp;T</span>
+    <span class="legend-item"><i class="star">&#9733;</i>Exclusivo</span>
+  </div>
+  <div class="weekday-row" id="weekday-row"></div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+  <button id="fab-add" class="fab" aria-label="Nova reserva">+</button>
+  <div id="day-panel" class="day-panel" hidden>
+    <div class="day-panel-head">
+      <h2 id="day-panel-title"></h2>
+      <button id="day-panel-close" class="icon-btn" aria-label="Fechar">&#10005;</button>
+    </div>
+    <div id="day-panel-list" class="booking-list"></div>
+  </div>
+</div>
+
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h2 id="modal-title">Nova reserva</h2>
+    <form id="booking-form">
+      <label class="field"><span>Início</span><input type="date" id="f-start" required></label>
+      <label class="field"><span>Fim</span><input type="date" id="f-end" required></label>
+      <fieldset class="field">
+        <legend>Quem</legend>
+        <div class="user-checks">
+          <label class="chk chk-am"><input type="checkbox" name="users" value="AM"><span>AM</span></label>
+          <label class="chk chk-tc"><input type="checkbox" name="users" value="T&amp;C"><span>T&amp;C</span></label>
+          <label class="chk chk-ft"><input type="checkbox" name="users" value="F&amp;T"><span>F&amp;T</span></label>
+        </div>
+      </fieldset>
+      <label class="field"><span>Descrição / opção (opcional)</span><input type="text" id="f-desc" placeholder="ex. Constança amigas" maxlength="80"></label>
+      <label class="field field-inline"><input type="checkbox" id="f-exclusive"><span>Exclusivo — só quem está selecionado tem acesso *</span></label>
+      <label class="field"><span>O teu nome (opcional)</span><input type="text" id="f-by" placeholder="quem está a marcar" maxlength="40"></label>
+      <p id="form-error" class="form-error" hidden></p>
+      <div class="modal-actions">
+        <button type="button" id="f-delete" class="btn btn-danger" hidden>Eliminar</button>
+        <div class="modal-actions-right">
+          <button type="button" id="f-cancel" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="f-save">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
