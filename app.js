@@ -618,17 +618,21 @@ function wireMonthPicker(){
 function wireGridSwipeNav(){
   var grid = document.getElementById('calendar-grid');
   var wheelAccum = 0;
-  var wheelCooldown = false;
+  var wheelLocked = false;
+  var wheelEndTimer = null;
   grid.addEventListener('wheel', function(e){
     e.preventDefault();
-    if (wheelCooldown) return;
+    // A single trackpad swipe fires a long burst of wheel events (momentum/
+    // inertia can run well past a fixed cooldown), so lock for the whole
+    // gesture instead of a flat timeout — only unlock once events stop.
+    clearTimeout(wheelEndTimer);
+    wheelEndTimer = setTimeout(function(){ wheelLocked = false; wheelAccum = 0; }, 150);
+    if (wheelLocked) return;
     wheelAccum += e.deltaY;
     if (Math.abs(wheelAccum) > 40){
       viewDate.setMonth(viewDate.getMonth() + (wheelAccum > 0 ? 1 : -1));
       renderCalendar();
-      wheelAccum = 0;
-      wheelCooldown = true;
-      setTimeout(function(){ wheelCooldown = false; }, 400);
+      wheelLocked = true;
     }
   }, { passive: false });
 
