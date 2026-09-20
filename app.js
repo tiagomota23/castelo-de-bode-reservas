@@ -763,7 +763,6 @@ function openModal(id, prefillDate){
     document.getElementById('f-end').value = b.end;
     document.getElementById('f-desc').value = b.desc || '';
     document.getElementById('f-exclusive').checked = !!b.exclusive;
-    document.getElementById('f-by').value = b.by || '';
     var boxes = document.querySelectorAll('input[name="users"]');
     for (var i=0;i<boxes.length;i++) boxes[i].checked = b.users.indexOf(boxes[i].value) !== -1;
     delBtn.hidden = false;
@@ -774,6 +773,7 @@ function openModal(id, prefillDate){
     document.getElementById('f-end').value = d;
     delBtn.hidden = true;
   }
+  document.getElementById('f-by').value = (currentUser && currentUser.email) || '';
   validateDatesLive();
   document.getElementById('modal-backdrop').hidden = false;
 }
@@ -797,7 +797,7 @@ async function saveBooking(){
   var end = document.getElementById('f-end').value;
   var desc = document.getElementById('f-desc').value.trim();
   var exclusive = document.getElementById('f-exclusive').checked;
-  var by = document.getElementById('f-by').value.trim();
+  var by = (currentUser && currentUser.email) || '';
   var boxes = document.querySelectorAll('input[name="users"]:checked');
   var users = Array.prototype.map.call(boxes, function(cb){ return cb.value; });
   var errEl = document.getElementById('form-error');

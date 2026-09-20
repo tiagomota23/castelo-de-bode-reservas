@@ -129,6 +129,7 @@ h1,h2{text-wrap:balance;}
 .month-picker-btn.is-selected{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text-muted);margin-bottom:14px;}
 .field input[type=date],.field input[type=text]{font-size:16px;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;}
+.field input[type=text][readonly]{color:var(--text-muted);}
 .field-inline{flex-direction:row;align-items:center;gap:10px;font-size:14px;color:var(--text);}
 fieldset.field{border:none;padding:0;margin:0 0 14px;}
 fieldset.field legend{padding:0;margin-bottom:6px;}
