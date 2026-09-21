@@ -60,7 +60,6 @@ h1,h2{text-wrap:balance;}
 .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--border);}
 .month-label{flex:1;text-align:center;font-family:var(--font-display);font-size:19px;font-variant-numeric:tabular-nums;background:none;border:none;color:inherit;padding:6px 4px;cursor:pointer;border-radius:var(--radius-sm);}
 .month-label:active{background:var(--surface-2);}
-.lock-btn{margin-left:2px;}
 .banner{margin:10px 16px 0;padding:10px 14px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13px;}
 .legend{display:flex;flex-wrap:wrap;gap:14px;padding:14px 16px 4px;font-size:13px;color:var(--text-muted);}
 .legend-item{display:flex;align-items:center;gap:6px;}

@@ -169,9 +169,6 @@ async function requestAccess(){
 async function showApp(){
   document.getElementById('login-screen').hidden = true;
   document.getElementById('app-screen').hidden = false;
-  document.getElementById('lock-btn').onclick = function(){
-    supabaseClient.auth.signOut();
-  };
   var adminRes = await supabaseClient.rpc('is_admin_user');
   var isAdmin = !!adminRes.data;
   document.getElementById('history-btn').hidden = !isAdmin;
