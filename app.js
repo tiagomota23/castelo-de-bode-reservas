@@ -46,7 +46,6 @@ var deleteArmed = false;
 var pickerYear = null;
 var pickStart = null;
 var pickEnd = null;
-var pickAwaitingEnd = false;
 var pickViewDate = new Date();
 var currentUser = null;
 var appBooted = false;
@@ -800,13 +799,7 @@ function renderMiniCal(){
     grid.appendChild(makeMcDayCell(new Date(year, month, d)));
   }
   var rangeLabel = document.getElementById('mc-range-label');
-  if (pickStart && pickEnd){
-    rangeLabel.textContent = pickAwaitingEnd
-      ? 'Início: ' + formatRange(pickStart, pickStart) + ' — escolhe a data de fim'
-      : formatRange(pickStart, pickEnd);
-  } else {
-    rangeLabel.textContent = 'Escolhe a data de início';
-  }
+  rangeLabel.textContent = (pickStart && pickEnd) ? formatRange(pickStart, pickEnd) : 'Escolhe uma data';
 }
 
 function makeMcDayCell(dateObj){
@@ -832,17 +825,23 @@ function makeMcDayCell(dateObj){
 }
 
 function mcSelectDay(iso){
-  if (!pickAwaitingEnd){
-    pickStart = iso;
-    pickEnd = iso;
-    pickAwaitingEnd = true;
-  } else {
+  var singleDaySelected = pickStart && pickEnd && pickStart === pickEnd;
+  if (singleDaySelected && iso === pickStart){
+    // tapping the only selected day again clears it
+    pickStart = null;
+    pickEnd = null;
+  } else if (singleDaySelected){
+    // a different day extends the range from the day already selected
     if (iso < pickStart){
+      pickEnd = pickStart;
       pickStart = iso;
     } else {
       pickEnd = iso;
     }
-    pickAwaitingEnd = false;
+  } else {
+    // nothing selected, or a full range already exists — start fresh
+    pickStart = iso;
+    pickEnd = iso;
   }
   renderMiniCal();
   validateDatesLive();
@@ -852,7 +851,7 @@ function validateDatesLive(){
   var start = pickStart, end = pickEnd;
   var errEl = document.getElementById('form-error');
   var saveBtn = document.getElementById('f-save');
-  if (!start || !end || pickAwaitingEnd){
+  if (!start || !end){
     errEl.hidden = true;
     saveBtn.disabled = false;
     return;
@@ -882,7 +881,6 @@ function openModal(id, prefillDate){
     document.getElementById('modal-title').textContent = 'Editar reserva';
     pickStart = b.start;
     pickEnd = b.end;
-    pickAwaitingEnd = false;
     document.getElementById('f-desc').value = b.desc || '';
     document.getElementById('f-exclusive').checked = !!b.exclusive;
     var boxes = document.querySelectorAll('input[name="users"]');
@@ -896,7 +894,6 @@ function openModal(id, prefillDate){
     var d = prefillDate || todayISO();
     pickStart = d;
     pickEnd = d;
-    pickAwaitingEnd = false;
     delBtn.hidden = true;
     document.getElementById('f-by').value = (currentUser && currentUser.email) || '';
   }
@@ -934,8 +931,8 @@ async function saveBooking(){
   var users = Array.prototype.map.call(boxes, function(cb){ return cb.value; });
   var errEl = document.getElementById('form-error');
 
-  if (!start || !end || pickAwaitingEnd){
-    errEl.hidden = false; errEl.textContent = 'Escolhe a data de início e a data de fim.'; return;
+  if (!start || !end){
+    errEl.hidden = false; errEl.textContent = 'Escolhe as datas.'; return;
   }
   if (!users.length){
     errEl.hidden = false; errEl.textContent = 'Escolhe pelo menos um: AM, T&C ou F&T.'; return;
