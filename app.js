@@ -44,6 +44,10 @@ var highlightRange = null;
 var editingId = null;
 var deleteArmed = false;
 var pickerYear = null;
+var pickStart = null;
+var pickEnd = null;
+var pickAwaitingEnd = false;
+var pickViewDate = new Date();
 var currentUser = null;
 var appBooted = false;
 
@@ -776,16 +780,79 @@ function wireModal(){
     }
     deleteBooking();
   };
-  document.getElementById('f-start').addEventListener('change', validateDatesLive);
-  document.getElementById('f-end').addEventListener('change', validateDatesLive);
+  document.getElementById('mc-prev').onclick = function(){ pickViewDate.setMonth(pickViewDate.getMonth()-1); renderMiniCal(); };
+  document.getElementById('mc-next').onclick = function(){ pickViewDate.setMonth(pickViewDate.getMonth()+1); renderMiniCal(); };
+}
+
+function renderMiniCal(){
+  document.getElementById('mc-month-label').textContent = MONTHS[pickViewDate.getMonth()] + ' ' + pickViewDate.getFullYear();
+  var grid = document.getElementById('mc-grid');
+  grid.innerHTML = '';
+  var year = pickViewDate.getFullYear(), month = pickViewDate.getMonth();
+  var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  for (var i = 0; i < firstDow; i++){
+    var blank = document.createElement('span');
+    blank.className = 'mc-day mc-day-blank';
+    grid.appendChild(blank);
+  }
+  for (var d = 1; d <= daysInMonth; d++){
+    grid.appendChild(makeMcDayCell(new Date(year, month, d)));
+  }
+  var rangeLabel = document.getElementById('mc-range-label');
+  if (pickStart && pickEnd){
+    rangeLabel.textContent = pickAwaitingEnd
+      ? 'Início: ' + formatRange(pickStart, pickStart) + ' — escolhe a data de fim'
+      : formatRange(pickStart, pickEnd);
+  } else {
+    rangeLabel.textContent = 'Escolhe a data de início';
+  }
+}
+
+function makeMcDayCell(dateObj){
+  var iso = toISO(dateObj);
+  var cell = document.createElement('button');
+  cell.type = 'button';
+  cell.className = 'mc-day';
+  cell.textContent = dateObj.getDate();
+  if (iso === todayISO()) cell.classList.add('is-today');
+  if (pickStart && pickEnd && iso >= pickStart && iso <= pickEnd){
+    cell.classList.add('in-range');
+    if (iso === pickStart) cell.classList.add('range-start');
+    if (iso === pickEnd) cell.classList.add('range-end');
+  }
+  var dayBookings = bookingsForDate(iso).filter(function(b){ return b.id !== editingId; });
+  if (dayBookings.length){
+    var dot = document.createElement('span');
+    dot.className = 'mc-day-dot';
+    cell.appendChild(dot);
+  }
+  cell.addEventListener('click', function(){ mcSelectDay(iso); });
+  return cell;
+}
+
+function mcSelectDay(iso){
+  if (!pickAwaitingEnd){
+    pickStart = iso;
+    pickEnd = iso;
+    pickAwaitingEnd = true;
+  } else {
+    if (iso < pickStart){
+      pickStart = iso;
+    } else {
+      pickEnd = iso;
+    }
+    pickAwaitingEnd = false;
+  }
+  renderMiniCal();
+  validateDatesLive();
 }
 
 function validateDatesLive(){
-  var start = document.getElementById('f-start').value;
-  var end = document.getElementById('f-end').value;
+  var start = pickStart, end = pickEnd;
   var errEl = document.getElementById('form-error');
   var saveBtn = document.getElementById('f-save');
-  if (!start || !end || end < start){
+  if (!start || !end || pickAwaitingEnd){
     errEl.hidden = true;
     saveBtn.disabled = false;
     return;
@@ -813,8 +880,9 @@ function openModal(id, prefillDate){
   if (id){
     var b = state.bookings.filter(function(x){ return x.id === id; })[0];
     document.getElementById('modal-title').textContent = 'Editar reserva';
-    document.getElementById('f-start').value = b.start;
-    document.getElementById('f-end').value = b.end;
+    pickStart = b.start;
+    pickEnd = b.end;
+    pickAwaitingEnd = false;
     document.getElementById('f-desc').value = b.desc || '';
     document.getElementById('f-exclusive').checked = !!b.exclusive;
     var boxes = document.querySelectorAll('input[name="users"]');
@@ -826,11 +894,15 @@ function openModal(id, prefillDate){
   } else {
     document.getElementById('modal-title').textContent = 'Nova reserva';
     var d = prefillDate || todayISO();
-    document.getElementById('f-start').value = d;
-    document.getElementById('f-end').value = d;
+    pickStart = d;
+    pickEnd = d;
+    pickAwaitingEnd = false;
     delBtn.hidden = true;
     document.getElementById('f-by').value = (currentUser && currentUser.email) || '';
   }
+  pickViewDate = parseISO(pickStart);
+  pickViewDate.setDate(1);
+  renderMiniCal();
   validateDatesLive();
   document.getElementById('modal-backdrop').hidden = false;
 }
@@ -853,8 +925,8 @@ var commitInFlight = false;
 
 async function saveBooking(){
   if (commitInFlight) return;
-  var start = document.getElementById('f-start').value;
-  var end = document.getElementById('f-end').value;
+  var start = pickStart;
+  var end = pickEnd;
   var desc = document.getElementById('f-desc').value.trim();
   var exclusive = document.getElementById('f-exclusive').checked;
   var by = (currentUser && currentUser.email) || '';
@@ -862,8 +934,8 @@ async function saveBooking(){
   var users = Array.prototype.map.call(boxes, function(cb){ return cb.value; });
   var errEl = document.getElementById('form-error');
 
-  if (!start || !end || end < start){
-    errEl.hidden = false; errEl.textContent = 'Verifica as datas: o fim tem de ser igual ou depois do início.'; return;
+  if (!start || !end || pickAwaitingEnd){
+    errEl.hidden = false; errEl.textContent = 'Escolhe a data de início e a data de fim.'; return;
   }
   if (!users.length){
     errEl.hidden = false; errEl.textContent = 'Escolhe pelo menos um: AM, T&C ou F&T.'; return;

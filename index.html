@@ -86,8 +86,21 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <h2 id="modal-title">Nova reserva</h2>
     <form id="booking-form">
-      <label class="field"><span>Início</span><input type="date" id="f-start" required></label>
-      <label class="field"><span>Fim</span><input type="date" id="f-end" required></label>
+      <div class="field">
+        <span>Datas</span>
+        <div class="mini-cal">
+          <div class="mini-cal-head">
+            <button type="button" id="mc-prev" class="icon-btn" aria-label="Mês anterior">‹</button>
+            <span id="mc-month-label" class="mini-cal-label"></span>
+            <button type="button" id="mc-next" class="icon-btn" aria-label="Mês seguinte">›</button>
+          </div>
+          <div class="mini-cal-weekdays">
+            <span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span><span>D</span>
+          </div>
+          <div class="mini-cal-grid" id="mc-grid"></div>
+        </div>
+        <p id="mc-range-label" class="mini-cal-range"></p>
+      </div>
       <fieldset class="field">
         <legend>Quem</legend>
         <div class="user-checks">
