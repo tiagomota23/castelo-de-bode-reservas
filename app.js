@@ -336,8 +336,8 @@ function renderCalendar(){
   var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
   var daysInMonth = new Date(year, month+1, 0).getDate();
   var lastDow = (new Date(year, month, daysInMonth).getDay() + 6) % 7;
-  var leadDays = firstDow + 7;
-  var trailDays = (6 - lastDow) + 7;
+  var leadDays = firstDow;
+  var trailDays = 6 - lastDow;
 
   for (var i = leadDays; i >= 1; i--){
     grid.appendChild(makeDayCell(new Date(year, month, 1 - i), false));
@@ -354,11 +354,17 @@ function renderCalendar(){
 function renderMonthList(){
   var list = document.getElementById('month-list');
   if (!list) return;
+  // Same lead/trail-day math as renderCalendar(), so this covers exactly
+  // what's visible in the grid — including the padding days from the
+  // previous/next month that fill out the first/last week.
   var year = viewDate.getFullYear(), month = viewDate.getMonth();
-  var monthStart = toISO(new Date(year, month, 1));
-  var monthEnd = toISO(new Date(year, month + 1, 0));
+  var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  var lastDow = (new Date(year, month, daysInMonth).getDay() + 6) % 7;
+  var rangeStart = toISO(new Date(year, month, 1 - firstDow));
+  var rangeEnd = toISO(new Date(year, month, daysInMonth + (6 - lastDow)));
   var items = state.bookings.filter(function(b){
-    return dateRangeOverlap(b.start, b.end, monthStart, monthEnd);
+    return dateRangeOverlap(b.start, b.end, rangeStart, rangeEnd);
   }).sort(function(a, b){ return a.start.localeCompare(b.start); });
 
   if (!items.length){
