@@ -35,7 +35,6 @@ var MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','ago
 var WEEKDAYS = ['seg','ter','qua','qui','sex','sáb','dom'];
 
 var state = { bookings: [] };
-var suppressCellClickUntil = 0;
 var supabaseClient = null;
 var realtimeChannel = null;
 var viewDate = new Date(); viewDate.setDate(1);
@@ -308,7 +307,6 @@ function makeDayCell(dateObj, isCurrentMonth){
     cell.appendChild(marks);
   }
   cell.addEventListener('click', function(){
-    if (Date.now() < suppressCellClickUntil) return;
     if (!isCurrentMonth){
       viewDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
       renderCalendar();
@@ -407,7 +405,6 @@ function wireCalendarNav(){
   document.getElementById('history-panel-close').onclick = closeHistoryPanel;
   document.getElementById('admin-tab-history').onclick = function(){ switchAdminTab('history'); };
   document.getElementById('admin-tab-access').onclick = function(){ switchAdminTab('access'); };
-  wireGridSwipeNav();
   wireMonthPicker();
 }
 
@@ -681,64 +678,6 @@ function wireMonthPicker(){
   document.getElementById('month-picker-backdrop').addEventListener('click', function(e){
     if (e.target.id === 'month-picker-backdrop') closeMonthPicker();
   });
-}
-
-function wireGridSwipeNav(){
-  var grid = document.getElementById('calendar-grid');
-  var wheelAccum = 0;
-  var wheelLocked = false;
-  var wheelEndTimer = null;
-  grid.addEventListener('wheel', function(e){
-    e.preventDefault();
-    // A single trackpad swipe fires a long burst of wheel events (momentum/
-    // inertia can run well past a fixed cooldown), so lock for the whole
-    // gesture instead of a flat timeout — only unlock once events stop.
-    clearTimeout(wheelEndTimer);
-    wheelEndTimer = setTimeout(function(){ wheelLocked = false; wheelAccum = 0; }, 150);
-    if (wheelLocked) return;
-    wheelAccum += e.deltaY;
-    if (Math.abs(wheelAccum) > 40){
-      viewDate.setMonth(viewDate.getMonth() + (wheelAccum > 0 ? 1 : -1));
-      renderCalendar();
-      wheelLocked = true;
-    }
-  }, { passive: false });
-
-  var touchStartY = null;
-  var touchStartX = null;
-  var touchIsSwipe = false;
-  var touchHandled = false;
-  grid.addEventListener('touchstart', function(e){
-    if (e.touches.length !== 1){ touchStartY = null; return; }
-    touchStartY = e.touches[0].clientY;
-    touchStartX = e.touches[0].clientX;
-    touchIsSwipe = false;
-    touchHandled = false;
-  }, { passive: true });
-  grid.addEventListener('touchmove', function(e){
-    if (touchStartY === null || touchHandled || e.touches.length !== 1) return;
-    var dy = e.touches[0].clientY - touchStartY;
-    var dx = e.touches[0].clientX - touchStartX;
-    if (!touchIsSwipe && Math.abs(dy) > 15 && Math.abs(dy) > Math.abs(dx)){
-      touchIsSwipe = true;
-    }
-    if (!touchIsSwipe) return;
-    // Once this is clearly a vertical swipe, take over the gesture: block
-    // the page scroll and the synthetic "click" iOS would otherwise fire on
-    // touchend, which was landing on whatever day cell the finger passed
-    // over and firing its own (unrelated) month-jump — compounding with
-    // this handler's own change into swiping several months at once.
-    e.preventDefault();
-    if (Math.abs(dy) > 50){
-      touchHandled = true;
-      suppressCellClickUntil = Date.now() + 400;
-      viewDate.setMonth(viewDate.getMonth() + (dy < 0 ? 1 : -1));
-      renderCalendar();
-    }
-  }, { passive: false });
-  grid.addEventListener('touchend', function(){
-    touchStartY = null;
-  }, { passive: true });
 }
 
 function formatRange(start,end){
