@@ -313,23 +313,15 @@ function makeDayCell(dateObj, isCurrentMonth){
       viewDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
       renderCalendar();
     }
+    document.getElementById('day-panel').hidden = true;
+    selectedDate = iso;
     if (dayBookings.length){
-      openDayPanel(iso);
-    } else {
-      document.getElementById('day-panel').hidden = true;
-      if (highlightRange){ highlightRange = null; renderCalendar(); }
-      selectedDate = iso;
-      openModal(null, iso);
-    }
-  });
-  cell.addEventListener('dblclick', function(){
-    if (dayBookings.length){
-      if (!isCurrentMonth){
-        viewDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
-        renderCalendar();
-      }
-      selectedDate = iso;
+      // Only one booking can ever occupy a given day (see bookings_no_overlap),
+      // so there's no list to choose from — go straight to editing it.
       openModal(dayBookings[0].id, iso);
+    } else {
+      if (highlightRange){ highlightRange = null; renderCalendar(); }
+      openModal(null, iso);
     }
   });
   return cell;
@@ -370,7 +362,8 @@ function wireCalendarNav(){
   };
   document.getElementById('fab-add').onclick = function(){
     var d = selectedDate || todayISO();
-    if (bookingsForDate(d).length){ openDayPanel(d); } else { openModal(null, d); }
+    var existing = bookingsForDate(d);
+    if (existing.length){ openModal(existing[0].id, d); } else { openModal(null, d); }
   };
   document.getElementById('day-panel-close').onclick = closeDayPanel;
   document.getElementById('history-btn').onclick = openAdminPanel;
@@ -608,7 +601,8 @@ async function revertHistoryEntry(entry){
     return;
   }
   renderCalendar();
-  if (selectedDate) openDayPanel(selectedDate);
+  var revertPanel = document.getElementById('day-panel');
+  if (revertPanel && !revertPanel.hidden && selectedDate) openDayPanel(selectedDate);
   loadHistoryTab();
 }
 
@@ -984,7 +978,8 @@ async function saveBooking(){
   }
   closeModal();
   renderCalendar();
-  if (selectedDate) openDayPanel(selectedDate);
+  var savePanel = document.getElementById('day-panel');
+  if (savePanel && !savePanel.hidden && selectedDate) openDayPanel(selectedDate);
 }
 
 async function deleteBooking(){
@@ -1007,7 +1002,8 @@ async function deleteBooking(){
   }
   closeModal();
   renderCalendar();
-  if (selectedDate) openDayPanel(selectedDate);
+  var deletePanel = document.getElementById('day-panel');
+  if (deletePanel && !deletePanel.hidden && selectedDate) openDayPanel(selectedDate);
 }
 
 function addDaysISO(iso, delta){
