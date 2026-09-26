@@ -381,9 +381,10 @@ function renderMonthList(){
       return '<span class="chip" style="background:'+meta.color+'22;color:'+meta.color+';border-color:'+meta.color+'">'+escapeHtml(meta.label)+'</span>';
     }).join('');
     row.innerHTML =
-      '<div class="booking-row-range">'+formatRange(b.start,b.end)+(b.by ? ' · '+escapeHtml(b.by) : '')+'</div>'+
+      '<div class="booking-row-range">'+formatRange(b.start,b.end)+'</div>'+
       '<div class="booking-row-top">'+chips+(b.exclusive?'<span class="excl-badge">★ exclusivo</span>':'')+'</div>'+
-      (b.desc ? '<div class="booking-row-desc">'+escapeHtml(b.desc)+'</div>' : '');
+      (b.desc ? '<div class="booking-row-desc">'+escapeHtml(b.desc)+'</div>' : '')+
+      (b.by ? '<div class="booking-row-by">'+escapeHtml(b.by)+'</div>' : '');
     row.addEventListener('click', function(){
       document.getElementById('day-panel').hidden = true;
       selectedDate = b.start;
@@ -724,9 +725,10 @@ function openDayPanel(iso){
       return '<span class="chip" style="background:'+meta.color+'22;color:'+meta.color+';border-color:'+meta.color+'">'+escapeHtml(meta.label)+'</span>';
     }).join('');
     row.innerHTML =
-      '<div class="booking-row-range">'+formatRange(b.start,b.end)+(b.by ? ' · '+escapeHtml(b.by) : '')+'</div>'+
+      '<div class="booking-row-range">'+formatRange(b.start,b.end)+'</div>'+
       '<div class="booking-row-top">'+chips+(b.exclusive?'<span class="excl-badge">★ exclusivo</span>':'')+'</div>'+
-      (b.desc ? '<div class="booking-row-desc">'+escapeHtml(b.desc)+'</div>' : '');
+      (b.desc ? '<div class="booking-row-desc">'+escapeHtml(b.desc)+'</div>' : '')+
+      (b.by ? '<div class="booking-row-by">'+escapeHtml(b.by)+'</div>' : '');
     row.addEventListener('click', function(){ openModal(b.id, iso); });
     list.appendChild(row);
   });
