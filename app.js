@@ -350,6 +350,43 @@ function renderCalendar(){
   for (var j = 1; j <= trailDays; j++){
     grid.appendChild(makeDayCell(new Date(year, month, daysInMonth + j), false));
   }
+  renderMonthList();
+}
+
+function renderMonthList(){
+  var list = document.getElementById('month-list');
+  if (!list) return;
+  var year = viewDate.getFullYear(), month = viewDate.getMonth();
+  var monthStart = toISO(new Date(year, month, 1));
+  var monthEnd = toISO(new Date(year, month + 1, 0));
+  var items = state.bookings.filter(function(b){
+    return dateRangeOverlap(b.start, b.end, monthStart, monthEnd);
+  }).sort(function(a, b){ return a.start.localeCompare(b.start); });
+
+  if (!items.length){
+    list.innerHTML = '<p class="empty-note">Sem reservas este mês.</p>';
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach(function(b){
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'booking-row';
+    var chips = b.users.map(function(u){
+      var meta = USERS[u] || {label:u,color:'#999'};
+      return '<span class="chip" style="background:'+meta.color+'22;color:'+meta.color+';border-color:'+meta.color+'">'+escapeHtml(meta.label)+'</span>';
+    }).join('');
+    row.innerHTML =
+      '<div class="booking-row-top">'+chips+(b.exclusive?'<span class="excl-badge">★ exclusivo</span>':'')+'</div>'+
+      (b.desc ? '<div class="booking-row-desc">'+escapeHtml(b.desc)+'</div>' : '')+
+      '<div class="booking-row-range">'+formatRange(b.start,b.end)+(b.by ? ' · '+escapeHtml(b.by) : '')+'</div>';
+    row.addEventListener('click', function(){
+      document.getElementById('day-panel').hidden = true;
+      selectedDate = b.start;
+      openModal(b.id, b.start);
+    });
+    list.appendChild(row);
+  });
 }
 
 function wireCalendarNav(){
