@@ -20,7 +20,7 @@
     <h1 class="wordmark">Castelo de Bode</h1>
     <div id="login-google">
       <p class="login-sub">Inicia sessão para continuar</p>
-      <button id="google-signin-btn" class="btn btn-primary" type="button">Entrar com Google</button>
+      <button id="google-signin-btn" class="btn btn-primary" type="button">Entrar</button>
     </div>
     <div id="login-unauthorized" hidden>
       <p class="login-sub">A conta <strong id="unauthorized-email"></strong> ainda não tem acesso.</p>
@@ -88,7 +88,17 @@
     <form id="booking-form">
       <div class="field">
         <span>Datas</span>
-        <div class="mini-cal">
+        <div class="date-boxes">
+          <button type="button" class="date-box" id="f-start-box">
+            <span class="date-box-label">Início</span>
+            <span class="date-box-value" id="f-start-value"></span>
+          </button>
+          <button type="button" class="date-box" id="f-end-box">
+            <span class="date-box-label">Fim</span>
+            <span class="date-box-value" id="f-end-value"></span>
+          </button>
+        </div>
+        <div class="mini-cal" id="mini-cal" hidden>
           <div class="mini-cal-head">
             <button type="button" id="mc-prev" class="icon-btn" aria-label="Mês anterior">‹</button>
             <span id="mc-month-label" class="mini-cal-label"></span>
@@ -99,7 +109,6 @@
           </div>
           <div class="mini-cal-grid" id="mc-grid"></div>
         </div>
-        <p id="mc-range-label" class="mini-cal-range"></p>
       </div>
       <fieldset class="field">
         <legend>Quem</legend>

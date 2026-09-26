@@ -2,7 +2,7 @@
 
 // iOS Safari sometimes restores this page from the back-forward cache
 // instead of doing a real reload after returning from the Google OAuth
-// redirect (e.g. sign out then "Entrar com Google" again). Supabase only
+// redirect (e.g. sign out then "Entrar" again). Supabase only
 // parses the ?code= param from the URL on the initial script load, so a
 // bfcache restore silently misses it and gets stuck on the login screen.
 // Force a real reload when that happens.
@@ -47,6 +47,7 @@ var pickerYear = null;
 var pickStart = null;
 var pickEnd = null;
 var pickViewDate = new Date();
+var pickCalendarOpen = false;
 var currentUser = null;
 var appBooted = false;
 
@@ -781,9 +782,14 @@ function wireModal(){
   };
   document.getElementById('mc-prev').onclick = function(){ pickViewDate.setMonth(pickViewDate.getMonth()-1); renderMiniCal(); };
   document.getElementById('mc-next').onclick = function(){ pickViewDate.setMonth(pickViewDate.getMonth()+1); renderMiniCal(); };
+  document.getElementById('f-start-box').onclick = function(){ pickCalendarOpen = true; renderMiniCal(); };
+  document.getElementById('f-end-box').onclick = function(){ pickCalendarOpen = true; renderMiniCal(); };
 }
 
 function renderMiniCal(){
+  document.getElementById('mini-cal').hidden = !pickCalendarOpen;
+  document.getElementById('f-start-value').textContent = pickStart ? formatRange(pickStart, pickStart) : '—';
+  document.getElementById('f-end-value').textContent = pickEnd ? formatRange(pickEnd, pickEnd) : '—';
   document.getElementById('mc-month-label').textContent = MONTHS[pickViewDate.getMonth()] + ' ' + pickViewDate.getFullYear();
   var grid = document.getElementById('mc-grid');
   grid.innerHTML = '';
@@ -798,8 +804,6 @@ function renderMiniCal(){
   for (var d = 1; d <= daysInMonth; d++){
     grid.appendChild(makeMcDayCell(new Date(year, month, d)));
   }
-  var rangeLabel = document.getElementById('mc-range-label');
-  rangeLabel.textContent = (pickStart && pickEnd) ? formatRange(pickStart, pickEnd) : 'Escolhe uma data';
 }
 
 function makeMcDayCell(dateObj){
@@ -899,6 +903,7 @@ function openModal(id, prefillDate){
   }
   pickViewDate = parseISO(pickStart);
   pickViewDate.setDate(1);
+  pickCalendarOpen = false;
   renderMiniCal();
   validateDatesLive();
   document.getElementById('modal-backdrop').hidden = false;
